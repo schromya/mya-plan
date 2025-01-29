@@ -5,11 +5,11 @@ from typing import List
 from openai import OpenAI
 from dotenv import load_dotenv
 import numpy as np
-
+from scipy import spatial
 
 
 def query_openai(input:List[str]=[""], engine:str="text-embedding-ada-002", max_tokens:int=500, temperature:int=0.7, 
-              logprobs:int=1, echo:bool=False):
+              logprobs:int=1, echo:bool=False) ->List[List[int]]:
     
     # Load API key
     load_dotenv()
@@ -22,7 +22,12 @@ def query_openai(input:List[str]=[""], engine:str="text-embedding-ada-002", max_
         model=engine
     )
 
-    return response.data
+    embeddings = []
+
+    for data in response.data:
+        embeddings.append(data.embedding)
+
+    return embeddings
 
 
 def parse_embeddings(embeddings:List[List['OpenAI.embedding']], input:List[List[str]]):
@@ -60,14 +65,49 @@ def rank_embeddings(embed_map):
     primitives = sorted(primitives, key=lambda x: x[2])
 
     return primitives
-        
 
+# From here: https://github.com/openai/openai-cookbook/blob/main/examples/utils/embeddings_utils.py
+def distances_from_embeddings(
+    query_embedding: List[float],
+    embeddings: List[List[float]],
+    distance_metric="cosine",
+) -> List[List]:
+    """Return the distances between a query embedding and a list of embeddings."""
+    distance_metrics = {
+        "cosine": spatial.distance.cosine,
+        "L1": spatial.distance.cityblock,
+        "L2": spatial.distance.euclidean,
+        "Linf": spatial.distance.chebyshev,
+    }
+    distances = [
+        distance_metrics[distance_metric](query_embedding, embedding)
+        for embedding in embeddings
+    ]
+    return distances
+
+def indices_of_nearest_neighbors_from_distances(distances) -> np.ndarray:
+    """Return a list of indices of nearest neighbors from a list of distances."""
+    return np.argsort(distances)
+        
+def rank_embeddings_v2(embeddings) -> List[int]:
+    """
+    TODO change this to array of dictionary
+    """
+    query_embedding = embeddings[0]
+    embeddings = embeddings[1:]
+
+
+    # get distances between the source embedding and other embeddings (function from embeddings_utils.py)
+    distances = distances_from_embeddings(query_embedding, embeddings, distance_metric="cosine")
+
+    # get indices of nearest neighbors (function from embeddings_utils.py)
+    indices_of_nearest_neighbors = indices_of_nearest_neighbors_from_distances(distances)
+    return indices_of_nearest_neighbors
 
 
 if __name__ == "__main__":
     primitives = [
         "PICK",
-        "END",
         "SCREW",
         "PLACE",
         "WIPE",
@@ -91,16 +131,14 @@ if __name__ == "__main__":
     ]
 
     prim_str = " ".join(primitives)
-    input = ["Open a jar"] + primitives
+    input = ["plug in a usb"] + primitives
 
     
-    response = query_openai(input)
+    embeddings = query_openai(input)
 
 
-    embed_map = parse_embeddings(response, input)
-    print(embed_map)
 
-    ranked_prims = rank_embeddings(embed_map)
+    ranked_indices = rank_embeddings_v2(embeddings)
     print("RANKED PRIMITIVES")
-    for prim in ranked_prims:
-        print(prim[0], prim[1], prim[2])
+    for idx in ranked_indices:
+        print(primitives[idx])
