@@ -130,8 +130,19 @@ if __name__ == "__main__":
         "DROP",
     ]
 
+
+    primitives = [
+        "Pick up apple",
+        "Bring me apple",
+        "Pick up water",
+        "Bring me water",
+        "Pick up screwdriver",
+        "Bring me screwdriver",
+        "stop"
+    ]
+
     prim_str = " ".join(primitives)
-    input = ["plug in a usb"] + primitives
+    input = ["I'm hungry, bring me a snack"] + primitives
 
     
     embeddings = query_openai(input)
