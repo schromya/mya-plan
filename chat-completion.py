@@ -59,36 +59,45 @@ if __name__ == "__main__":
     #     "DROP",
     # ]
 
-    primitives = [
-        "PICK",
-        "SCREW",
-        "PLACE",
-        "RESET",
-        "MOVE",
-        "GRASP",
-        "RELEASE",
-        "PUSH",
-        "STOP",
-        "INSERT",
-        "UNSCREW",
-        "PULL",
-        "DROP",
-    ]
+    primitives = {
+        "PICK":
+            "Gripper moves to the specified position and gripper closes. Once it closed, it move the object the pre-pick position.",
+        "PLACE":
+            "Gripper should move to the specified position and release. However, the gripper \
+            won't directly move to it, but rather move to a pre-place position which is 8cm above the place position, \
+            then move slowly with force control to the place position. Once it released, it will return to the pre-place \
+            position. \
+            Not like drop, the place action put things down slowly with care.",
+        "RESET":
+            "Releases the gripper and moves the arm back to the default position",
+        "MOVE":
+            "Moves the gripper to the specified position.",
+        "GRASP":
+            "Closes the gripper.",
+        "RELEASE":
+            "Releases the gripper.",
+        "STOP":
+            "Immediatly stops all movement in with the robot.",
+        "UNSCREW":
+            "Gripper goes to specified position, grasps the object, and untwists is 2 times, and then \
+            pull the object up",
+        "DROP":
+            "Gripper should move to the specified position and release. However, the gripper\
+            won't directly move to it, but rather move to a pre-drop position which is 8cm above the drop position,\
+            then move IMMEDIATELY to the drop position. Once it released, it will return to the pre-drop \
+            position.Not like place, the drop action put down things quickly."
+    }
 
-    prim_str = " ".join(primitives)
+    prim_str  = " | ".join(f"{key}: {value}" for key, value in primitives.items())
+
+
     input = "Directive: Insert a USB. Primitives:" + prim_str
     example_query = "Directive: Open a jar. Assume jar base is already stabalized. Primitives:" + prim_str
-    example_response = "1. UNSCREW\n2. RELEASE\n3. PLACE\n4. STOP\n5. MOVE\n6. GRASP\n7. PICK\n8. RESET\n9. PUSH\n10. DROP\n11. PULL\n12. INSERT\n13. SCREW"
+    example_response = "1. MOVE\n 2. UNSCREW\n 2. PLACE\n3. STOP\n"
 
     
     output = query_openai(input, example_query, example_response)
     formatted_json = json.dumps(output.model_dump(), indent=4)
-    # print(formatted_json)
 
     print(output.choices[0].message.content)
 
-
-    """
-    TODO:
-    - Need to give description of how each primitive works
-    """
