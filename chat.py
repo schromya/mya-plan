@@ -7,30 +7,33 @@ from dotenv import load_dotenv
 import numpy as np
 from scipy import spatial
 
+class LLMInterface:
+    def __init__(self):
+        self.chat_history = [{"role": "developer", "content": "You are an assistant for a 7-DOF Robot arm. Please rank ALL the following primitives to accomplish the given directive. Use stop to indicate the last relavent primative."}]
 
-def query_openai(input:str, example_query:str, example_response:str) -> "OpenAI.ChatCompletition":
-    
-    # Load API key
-    load_dotenv()
-    openai_api_key = os.getenv('OPENAI_API')
-  
-    client = OpenAI(api_key=openai_api_key)
+        # Load API key
+        load_dotenv()
+        llm_api_key = os.getenv('OPENAI_API')
+        self.client = OpenAI(api_key=llm_api_key)
 
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "developer", "content": "You are an assitant for a 7-DOF Robot arm. Please rank ALL the following primitives to accomplish the given directive. Use stop to indicate the last relavent primative."},
-            # {"role": "user", "content": example_query},
-            # {"role": "assistant", "content": example_response},
-            {"role": "user", "content": input}
-        ],
-    )
+    def init_history(self, example_query:str, example_response:str):
+        """
+        Give an example chat user query and LLM response before starting chat.
+        """
+        self.chat_history += [{"role": "user", "content": example_query}, {"role": "assistant", "content": example_response}]
 
 
-    return completion
+    def query_openai(self, input:str) -> "OpenAI.ChatCompletion":
+        """
+        Query GPT with chat history.
+        """
+        self.chat_history.append({"role": "user", "content": input})
+        completion = self.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=self.chat_history
+        )
 
-
-
+        return completion
 
 
 
@@ -77,7 +80,7 @@ if __name__ == "__main__":
         "RELEASE":
             "Releases the gripper.",
         "STOP":
-            "Immediatly stops all movement in with the robot.",
+            "Immediately stops all movement in with the robot.",
         "UNSCREW":
             "Gripper goes to specified position, grasps the object, and untwists is 2 times, and then \
             pull the object up",
@@ -88,25 +91,20 @@ if __name__ == "__main__":
             position.Not like place, the drop action put down things quickly."
     }
 
-    prim_str  = " | ".join(f"{key}: {value}" for key, value in primitives.items())
+    prim_str  = "Primitives: " + " | ".join(f"{key}: {value}" for key, value in primitives.items())
 
-
-    input = "Directive: Insert a USB. Primitives:" + prim_str
-    example_query = "Directive: Open a jar. Assume jar base is already stabalized. Primitives:" + prim_str
+    llm = LLMInterface()
+    example_query = "Directive: Open a jar. Assume jar base is already stabilized." + prim_str
     example_response = "1. MOVE\n 2. UNSCREW\n 2. PLACE\n3. STOP\n"
+    llm.init_history(example_query, example_response)
 
-    
-    output = query_openai(input, example_query, example_response)
-    formatted_json = json.dumps(output.model_dump(), indent=4)
+    query = "Directive: Insert a USB." 
+    print("\033[1m> User: \033[0m" + query)
+    output = llm.query_openai(query + prim_str)
+    print("\033[1m> Agent: \033[0m\n" + output.choices[0].message.content)
 
-    print(output.choices[0].message.content)
+    while(True):
+        input_query = input("\033[1m> User: \033[0m")
+        output = llm.query_openai(input_query)
+        print("\033[1m> Agent: \033[0m\n" + output.choices[0].message.content)
 
-
-
-
-"""
-TODO:
-- Try example with PICK
-- Try example with description
-- Change context to user lower-level primitive wording
-"""
